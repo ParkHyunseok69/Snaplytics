@@ -1,41 +1,28 @@
-from pathlib import Path
+# etl/scripts/extract.py
 import pandas as pd
+from pathlib import Path
 import hashlib
 
-INCOMING = Path(__file__).resolve().parent.parent / "incoming"
+INCOMING = Path("etl/incoming")
 
-def _find_file():
-    files = sorted(INCOMING.glob("*.xlsx"))
-    if not files:
-        raise FileNotFoundError("No .xlsx files in /etl/incoming")
-    return files[0]
-
-def checksum(path: Path) -> str:
+def checksum(path: Path):
     h = hashlib.sha256()
-    h.update(path.read_bytes())
+    with open(path, "rb") as f:
+        h.update(f.read())
     return h.hexdigest()
 
-def extract() -> list[pd.DataFrame]:
-    files = sorted(INCOMING.glob("*.xlsx"))
-
-    if not files:
-        raise FileNotFoundError("No .xlsx files found in etl/incoming")
-
-    dataframes = []
-
-    for fpath in files:
-        print(f"\n🔍 Loading file: {fpath.name}")
-
-        xls = pd.ExcelFile(fpath)
-        for sheet in xls.sheet_names:
-            try:
-                df = pd.read_excel(fpath, sheet_name=sheet, header=None)
-                df["_source_file"] = fpath.name
+def extract():
+    dfs = []
+    for path in INCOMING.glob("*.xlsx"):
+        print(f"📄 Reading {path.name} ...")
+        try:
+            xls = pd.ExcelFile(path)
+            for sheet in xls.sheet_names:
+                df = pd.read_excel(path, sheet_name=sheet, header=None)
+                df["_source_file"] = path.name
                 df["_sheet_name"] = sheet
-                dataframes.append(df)
-                print(f"     ✅ Loaded sheet: {sheet}")
-            except Exception as e:
-                print(f"     ⚠️ Skipped sheet {sheet}: {e}")
-
-    return dataframes
-
+                dfs.append(df)
+        except Exception as e:
+            print(f"❌ Error reading {path.name}: {e}")
+            continue
+    return dfs

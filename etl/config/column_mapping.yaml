@@ -1,5 +1,5 @@
 excel_to_db_mapping:
-  A:  # Top tabular format
+  A:  
     "Timestamp": booking_timestamp
     "Email Address": customer_email
     "Full name": customer_name
@@ -9,7 +9,7 @@ excel_to_db_mapping:
     "Booking or Walk-In": booking_type
     "is it your first time here? if not, how many times did you already had a photo session with us?": is_first_time
 
-  B:  # Bottom card format
+  B:  
     "client number": customer_id
     "full name": customer_name
     "email": customer_email

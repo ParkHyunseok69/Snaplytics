@@ -10,11 +10,15 @@ class Customer(Base):
     customer_id = Column(Integer, primary_key=True, index=True)
     full_name = Column(String)
     email = Column(String)
+    contact_number = Column(String)
+    instagram_handle = Column(String)
     acquisition_source = Column(String)
-    is_first_time = Column(Boolean)
+    is_first_time = Column(String)
     registration_date = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    consent = Column(String)
+    package = Column(String)
+    created_at = Column(DateTime, default=datetime.now)
+    last_updated = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     bookings = relationship("Booking", back_populates="customer")
 
@@ -28,8 +32,8 @@ class Package(Base):
     base_price = Column(Float)
     duration = Column(Integer)
     max_people = Column(Integer)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
+    last_updated = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
 class Addon(Base):
@@ -40,8 +44,8 @@ class Addon(Base):
     category = Column(String)
     price = Column(Float)
     applies_to = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
+    last_updated = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
 class Booking(Base):
@@ -56,8 +60,8 @@ class Booking(Base):
     gcash_payment = Column(Float)
     cash_payment = Column(Float)
     session_status = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
+    last_updated = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     customer = relationship("Customer", back_populates="bookings")
 
@@ -70,8 +74,8 @@ class BookingAddon(Base):
     addon_quantity = Column(Integer)
     addon_price = Column(Float)
     total_addon_cost = Column(Float)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
+    last_updated = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
 class Renewal(Base):
