@@ -1,6 +1,6 @@
 import pandas as pd
 from django.db import transaction
-from django.utils.timezone import make_aware
+from django.utils.timezone import make_aware, is_naive
 from datetime import datetime
 import numpy as np
 import re
@@ -95,6 +95,16 @@ def merge_consent(df):
                 is_first_time_final = False
                 psc = parse_prev_sessions(is_first_time)
 
+            package_name = r.get("package")
+            package_obj = None
+
+            if package_name and str(package_name).lower() not in ["nan", "none", ""]:
+                try:
+                    package_obj = Package.objects.get(name=package_name)
+                except Package.DoesNotExist:
+                    package_obj = None  
+
+
             Customer.objects.update_or_create(
                 email=r["email"],
                 defaults={
@@ -106,7 +116,7 @@ def merge_consent(df):
                     "previous_session_counts": psc,
                     "registration_date": registration_date,
                     "consent": r["consent"],
-                    "package": r["package"],
+                    "package": package_obj,
                 }
             )
 
@@ -220,41 +230,119 @@ def clean_breakdown(names, prices):
         addon_prices.append(None)
     return addon_names, addon_prices
 
+def detect_onesie_pajama(name, price):
+
+    if not name:
+        return None, None, None
+
+    n = str(name).lower()
+
+    # Normalization rules for Onesie Pajama rent
+    if (
+        "onesie" in n
+        or "pajama" in n
+        or "pj" in n
+        or "pajamas" in n
+    ):
+        canonical = "Onesie Pajama rent (1 design)"
+
+        # Price-based quantity rules
+        if price == 80:
+            return canonical, 1, 80
+        elif price == 150:
+            return canonical, 2, 80    
+        elif price == 210:
+            return canonical, 3, 80    
+        else:
+            print("⚠️ Unexpected Onesie Pajama price:", price)
+            return canonical, 3, price
+
+    return None, None, None
 
 # ============================================================
 # BOOKING ADDONS (DJANGO VERSION)
 # ============================================================
-def insert_booking_addons(booking, addon_names, addon_prices):
+def insert_booking_addons(booking, addon_names, addon_prices, session_date):
+    # Debug context
+    booking_date = session_date
+    booking_customer = booking.customer.full_name if booking.customer else "Unknown Customer"
+
+    # Remove existing addons for idempotency
     BookingAddon.objects.filter(booking=booking).delete()
 
-    for idx, name in enumerate(addon_names):
-        if not name:
+    for idx, raw_name in enumerate(addon_names):
+
+        # --- DEBUG: Missing addon name ---
+        if not raw_name:
+            print(f"❌ Missing addon NAME | Customer: {booking_customer} | Date: {booking_date}")
             continue
 
-        try:
-            addon_obj = Addon.objects.get(name__iexact=name)
-        except Addon.DoesNotExist:
-            logger.warning(f"Addon not found: {name}")
+        price_from_excel = addon_prices[idx] if idx < len(addon_prices) else None
+
+        # --- DEBUG: Missing price ---
+        if price_from_excel is None:
+            print(f"❌ Missing PRICE for addon '{raw_name}' | Customer: {booking_customer} | Date: {booking_date}")
             continue
 
-        price = addon_prices[idx] if idx < len(addon_prices) else None
-        if price is None:
-            logger.warning(f"Missing price for addon '{name}'")
+        # ----------------------------------------
+        # SPECIAL CASE — Onesie Pajama (nonlinear pricing)
+        # ----------------------------------------
+        canonical, qty_override, unit_override = detect_onesie_pajama(raw_name, price_from_excel)
+
+        if canonical:
+            addon_obj = Addon.objects.filter(name__iexact=canonical).first()
+            if not addon_obj:
+
+                # --- DEBUG: Special-case addon missing in DB ---
+                print(
+                    f"❌ Onesie Pajama addon missing in DB: '{canonical}' "
+                    f"| Customer: {booking_customer} | Date: {booking_date}"
+                )
+                continue
+
+            # DB price ALWAYS wins
+            unit_price = addon_obj.price
+            total = unit_price * qty_override
+
+            BookingAddon.objects.update_or_create(
+                booking=booking,
+                addon=addon_obj,
+                defaults={
+                    "addon_quantity": qty_override,
+                    "addon_price": unit_price,
+                    "total_addon_cost": total,
+                }
+            )
+            continue  # IMPORTANT: skip normal logic
+
+        # ----------------------------------------
+        # NORMAL ADDONS
+        # ----------------------------------------
+        addon_obj = Addon.objects.filter(name__iexact=raw_name).first()
+        if not addon_obj:
+
+            # --- DEBUG: Addon name not found in DB ---
+            print(
+                f"❌ Addon NOT FOUND in DB: '{raw_name}' "
+                f"| Customer: {booking_customer} | Date: {booking_date}"
+            )
             continue
 
-        # determine quantity
-        if addon_obj.price in [None, 0]:
-            qty = 1
-            unit_price = price
-        else:
-            ratio = price / addon_obj.price
-            if abs(ratio - round(ratio)) < 1e-6:
-                qty = int(round(ratio))
-                unit_price = addon_obj.price
+        # Determine quantity using Excel price only for qty detection
+        if addon_obj.price:  # DB price exists
+            if price_from_excel % addon_obj.price == 0:
+                qty = int(price_from_excel / addon_obj.price)
             else:
-                qty = 2
-                unit_price = price
+                qty = 1
+                print(
+                    f"⚠️ Unusual PRICE MISMATCH for '{raw_name}': Excel={price_from_excel}, "
+                    f"DB={addon_obj.price} | Customer: {booking_customer} | Date: {booking_date}"
+                )
+        else:
+            qty = 1
 
+        # DB PRICE ALWAYS WINS
+        unit_price = addon_obj.price or price_from_excel
         total = qty * unit_price
 
         BookingAddon.objects.update_or_create(
@@ -263,9 +351,22 @@ def insert_booking_addons(booking, addon_names, addon_prices):
             defaults={
                 "addon_quantity": qty,
                 "addon_price": unit_price,
-                "total_addon_cost": total
+                "total_addon_cost": total,
             }
         )
+
+
+
+def clean_string(value):
+    if value is None:
+        return None
+    if isinstance(value, float):  # catches NaN
+        return None
+    value = str(value).strip()
+    if value.lower() in ["nan", "none", "null", ""]:
+        return None
+    return value
+
 
 
 # ============================================================
@@ -276,9 +377,9 @@ def merge_bookings(df):
 
     with transaction.atomic():
         for _, r in df.iterrows():
-            full_name = r.get("full_name")
-            email = r.get("email")
-            package_name = r.get("package")
+            full_name = clean_string(r.get("full_name"))
+            email = clean_string(r.get("email"))
+            package_name = clean_string(r.get("package"))
 
             # ------------------------------
             # FIND CUSTOMER
@@ -301,28 +402,38 @@ def merge_bookings(df):
             # FIND OR CREATE PACKAGE
             # ------------------------------
 
-            package = None
-            if package_name:
+            package_name = clean_string(r.get("package"))
+            if not package_name or package_name.lower() in ["empty", "nan", "none", ""]:
+                package = None
+            else:
                 package = Package.objects.filter(name__iexact=package_name).first()
 
-            if not package:
-                package = Package.objects.create(name=package_name, price=None)
+                if not package:
+                    package = Package.objects.create(
+                        name=package_name,
+                        price=0  # or default
+        )
+
 
             # ------------------------------
             # SESSION DATE
             # ------------------------------
 
-            sd = r.get("session_date")
-            try:
-                if isinstance(sd, str):
-                    sd = make_aware(datetime.fromisoformat(sd))
-            except:
-                sd = None
+            raw_dt = r.get("session_date")
+
+            if raw_dt and str(raw_dt).lower() not in ["nan", "none", ""]:
+                try:
+                    dt = datetime.fromisoformat(str(raw_dt))
+                    if is_naive(dt):
+                        dt = make_aware(dt)
+                    session_date = dt
+                except:
+                    session_date = None
 
             booking = Booking.objects.create(
                 customer=customer,
                 package=package,
-                session_date=sd,
+                session_date=session_date,
                 total_price=r.get("total"),
                 gcash_payment=r.get("gcash"),
                 cash_payment=r.get("cash"),
@@ -339,7 +450,7 @@ def merge_bookings(df):
                 r.get("breakdown_pricing")
             )
 
-            insert_booking_addons(booking, addon_names, addon_prices)
+            insert_booking_addons(booking, addon_names, addon_prices, session_date)
 
             merged += 1
 
