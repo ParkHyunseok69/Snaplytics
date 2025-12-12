@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'backend',
     'api',
     'rest_framework',
+    "recommender",
 ]
 
 DATABASES = {

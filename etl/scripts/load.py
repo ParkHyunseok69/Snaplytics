@@ -5,6 +5,9 @@ from datetime import datetime
 import numpy as np
 import re
 import logging
+import math
+from django.db.models import Q
+
 
 from backend.models import (
     Customer,
@@ -18,9 +21,6 @@ from backend.models import (
 logger = logging.getLogger(__name__)
 
 
-# ============================================================
-#  JSON CLEANER
-# ============================================================
 def clean_json(obj):
     if obj is None:
         return None
@@ -41,9 +41,6 @@ def clean_json(obj):
     return str(obj)
 
 
-# ============================================================
-#   STAGING
-# ============================================================
 def insert_staging(df, file_name, checksum):
     for i, row in df.iterrows():
         raw_clean = clean_json(row["_raw"])
@@ -61,9 +58,6 @@ def insert_staging(df, file_name, checksum):
         )
 
 
-# ============================================================
-#   CONSENT MERGE
-# ============================================================
 def parse_prev_sessions(value):
     if value is None or str(value).strip() == "" or str(value).lower() == "nan":
         return 0
@@ -125,9 +119,6 @@ def merge_consent(df):
     return merged
 
 
-# ============================================================
-# ADDON NORMALIZATION
-# ============================================================
 
 OFFICIAL_ADDONS = [
     "Additional Person",
@@ -160,7 +151,7 @@ OFFICIAL_ADDONS = [
     "8x10 Print",
     "4x6 Print",
     "Glass Frame (Small 8x10 Photo) with Heigen Studio Bag",
-    "Soft Copy (ID)",
+
 ]
 
 ADDON_ALIAS = {
@@ -178,14 +169,9 @@ ADDON_ALIAS = {
     "additional 10": "Additional 10 minutes",
     "wallet": "Additional Wallet Size (Hardcopy)",
     "wallet size": "Additional Wallet Size (Hardcopy)",
-    "photostrip": "Additional Photo-Strip",
-    "photo strip": "Additional Photo-Strip",
     "whole body backdrop": "Whole-Body Backdrop",
     "whole-body": "Whole-Body Backdrop",
     "backdrop": "Additional Backdrop",
-    "2 photostrips": "2 Photostrips",
-    "a6": "Additional A6 size (Hardcopy)",
-    "4r": "Additional 4r Size (Hardcopy)",
     "5x7": "5x7 Print",
     "8x10": "8x10 Print",
     "4x6": "4x6 Print",
@@ -224,20 +210,20 @@ def clean_breakdown(names, prices):
     addon_names = extract_addon_names(names)
     if not addon_names:
         return [], []
-    addon_names = addon_names[1:]  # skip package name
+    addon_names = addon_names[1:]  
     addon_prices = extract_prices(prices)[1:]
     while len(addon_prices) < len(addon_names):
         addon_prices.append(None)
     return addon_names, addon_prices
 
-def detect_onesie_pajama(name, price):
+def detect_onesie_pajama(name, price, date):
 
     if not name:
         return None, None, None
 
     n = str(name).lower()
 
-    # Normalization rules for Onesie Pajama rent
+
     if (
         "onesie" in n
         or "pajama" in n
@@ -246,90 +232,103 @@ def detect_onesie_pajama(name, price):
     ):
         canonical = "Onesie Pajama rent (1 design)"
 
-        # Price-based quantity rules
+
         if price == 80:
             return canonical, 1, 80
         elif price == 150:
             return canonical, 2, 80    
         elif price == 210:
-            return canonical, 3, 80    
+            return canonical, 3, 80
+        elif price == 300:
+            return canonical, 4, 80
+        elif price ==  450:
+            return canonical, 6, 80
         else:
-            print("⚠️ Unexpected Onesie Pajama price:", price)
+            print(f"⚠️ Session Date: {date} | Unexpected Onesie Pajama price: {price}")
             return canonical, 3, price
 
     return None, None, None
 
-# ============================================================
-# BOOKING ADDONS (DJANGO VERSION)
-# ============================================================
+def restore_percent(value):
+    if value is None:
+        return ""
+    s = str(value).strip()
+    if s.replace(".", "", 1).lstrip("-").isdigit():
+        try:
+            f = float(s)
+            if -1 <= f <= 1:
+                pct = round(f * 100)
+                return f"{pct}%"
+        except:
+            pass
+    return s
+
+
 def insert_booking_addons(booking, addon_names, addon_prices, session_date):
     # Debug context
     booking_date = session_date
     booking_customer = booking.customer.full_name if booking.customer else "Unknown Customer"
 
-    # Remove existing addons for idempotency
+    # Preloaded addons map (global store for speed)
+    # addon_map = {"addon name lower": Addon instance}
+    global ADDON_CACHE
+    if "ADDON_CACHE" not in globals():
+        ADDON_CACHE = {a.name.lower(): a for a in Addon.objects.all()}
+
+    # 1️⃣ Delete existing addons (Option A overwrite logic preserved)
     BookingAddon.objects.filter(booking=booking).delete()
 
+    # 2️⃣ Loop addons with your EXACT business rules
     for idx, raw_name in enumerate(addon_names):
 
-        # --- DEBUG: Missing addon name ---
         if not raw_name:
             print(f"❌ Missing addon NAME | Customer: {booking_customer} | Date: {booking_date}")
             continue
 
         price_from_excel = addon_prices[idx] if idx < len(addon_prices) else None
 
-        # --- DEBUG: Missing price ---
         if price_from_excel is None:
             print(f"❌ Missing PRICE for addon '{raw_name}' | Customer: {booking_customer} | Date: {booking_date}")
             continue
 
-        # ----------------------------------------
-        # SPECIAL CASE — Onesie Pajama (nonlinear pricing)
-        # ----------------------------------------
-        canonical, qty_override, unit_override = detect_onesie_pajama(raw_name, price_from_excel)
+        # 3️⃣ Onesie Pajama detection (unchanged)
+        canonical, qty_override, _ = detect_onesie_pajama(raw_name, price_from_excel, booking_date)
 
         if canonical:
-            addon_obj = Addon.objects.filter(name__iexact=canonical).first()
-            if not addon_obj:
+            addon_obj = ADDON_CACHE.get(canonical.lower())
 
-                # --- DEBUG: Special-case addon missing in DB ---
+            if not addon_obj:
                 print(
                     f"❌ Onesie Pajama addon missing in DB: '{canonical}' "
                     f"| Customer: {booking_customer} | Date: {booking_date}"
                 )
                 continue
 
-            # DB price ALWAYS wins
             unit_price = addon_obj.price
             total = unit_price * qty_override
 
-            BookingAddon.objects.update_or_create(
+            # 4️⃣ Create new addon row (faster & same logic — because we deleted earlier)
+            BookingAddon.objects.create(
                 booking=booking,
                 addon=addon_obj,
-                defaults={
-                    "addon_quantity": qty_override,
-                    "addon_price": unit_price,
-                    "total_addon_cost": total,
-                }
+                addon_quantity=qty_override,
+                addon_price=unit_price,
+                total_addon_cost=total,
             )
-            continue  # IMPORTANT: skip normal logic
+            continue
 
-        # ----------------------------------------
-        # NORMAL ADDONS
-        # ----------------------------------------
-        addon_obj = Addon.objects.filter(name__iexact=raw_name).first()
+        # 5️⃣ Regular addon lookup via preloaded map (FAST)
+        addon_obj = ADDON_CACHE.get(raw_name.lower())
+
         if not addon_obj:
-
-            # --- DEBUG: Addon name not found in DB ---
             print(
                 f"❌ Addon NOT FOUND in DB: '{raw_name}' "
                 f"| Customer: {booking_customer} | Date: {booking_date}"
             )
             continue
 
-        # Determine quantity using Excel price only for qty detection
-        if addon_obj.price:  # DB price exists
+        # 6️⃣ Qty logic (unchanged)
+        if addon_obj.price:
             if price_from_excel % addon_obj.price == 0:
                 qty = int(price_from_excel / addon_obj.price)
             else:
@@ -341,117 +340,181 @@ def insert_booking_addons(booking, addon_names, addon_prices, session_date):
         else:
             qty = 1
 
-        # DB PRICE ALWAYS WINS
         unit_price = addon_obj.price or price_from_excel
         total = qty * unit_price
 
-        BookingAddon.objects.update_or_create(
+        # 7️⃣ Create addon row (same logic, faster)
+        BookingAddon.objects.create(
             booking=booking,
             addon=addon_obj,
-            defaults={
-                "addon_quantity": qty,
-                "addon_price": unit_price,
-                "total_addon_cost": total,
-            }
+            addon_quantity=qty,
+            addon_price=unit_price,
+            total_addon_cost=total,
         )
+
 
 
 
 def clean_string(value):
     if value is None:
         return None
-    if isinstance(value, float):  # catches NaN
+    if isinstance(value, float): 
         return None
     value = str(value).strip()
     if value.lower() in ["nan", "none", "null", ""]:
         return None
     return value
 
+def clean_amount(value):
+    if value is None:
+        return 0
+    try:
+        if isinstance(value, float) and math.isnan(value):
+            return 0
+    except:
+        pass
 
+    try:
+        v = float(value)
+        return v if v >= 0 else 0
+    except:
+        return 0
 
-# ============================================================
-# BOOKING MERGE
-# ============================================================
 def merge_bookings(df):
-    merged = 0
 
-    with transaction.atomic():
-        for _, r in df.iterrows():
-            full_name = clean_string(r.get("full_name"))
-            email = clean_string(r.get("email"))
-            package_name = clean_string(r.get("package"))
+    df = df.copy()
+    df["full_name"] = df["full_name"].apply(clean_string)
+    df["email"] = df["email"].apply(clean_string)
+    df["package"] = df["package"].apply(clean_string)
 
-            # ------------------------------
-            # FIND CUSTOMER
-            # ------------------------------
+    # -----------------------------------------
+    # 1. COLLECT UNIQUE CUSTOMER + PACKAGE KEYS
+    # -----------------------------------------
+    emails = set(df["email"].dropna().unique())
+    names = set(df["full_name"].dropna().unique())
+    package_names = set(df["package"].dropna().unique())
 
-            customer = None
-            if email:
-                customer = Customer.objects.filter(email__iexact=email).first()
+    # -----------------------------------------
+    # 2. LOAD EXISTING CUSTOMERS (email + name)
+    # -----------------------------------------
+    existing_customers = Customer.objects.filter(
+        Q(email__in=emails) | Q(full_name__in=names)
+    )
 
-            if not customer and full_name:
-                customer = Customer.objects.filter(full_name__iexact=full_name).first()
+    customer_map = {}
 
-            if not customer:
-                customer = Customer.objects.create(
-                    full_name=full_name or None,
-                    email=email or None,
-                )
+    for c in existing_customers:
+        if c.email:
+            customer_map[c.email.lower()] = c
+        if c.full_name:
+            customer_map[c.full_name.lower()] = c
 
-            # ------------------------------
-            # FIND OR CREATE PACKAGE
-            # ------------------------------
+    # -----------------------------------------
+    # 3. LOAD EXISTING PACKAGES
+    # -----------------------------------------
+    existing_packages = Package.objects.filter(
+        name__in=package_names
+    )
 
-            package_name = clean_string(r.get("package"))
-            if not package_name or package_name.lower() in ["empty", "nan", "none", ""]:
-                package = None
-            else:
-                package = Package.objects.filter(name__iexact=package_name).first()
+    package_map = {p.name.lower(): p for p in existing_packages}
 
-                if not package:
-                    package = Package.objects.create(
-                        name=package_name,
-                        price=0  # or default
+    # -----------------------------------------
+    # 4. DETECT NEW CUSTOMERS + PACKAGES
+    # -----------------------------------------
+    new_customers = []
+    new_packages = []
+
+    for _, r in df.iterrows():
+        email = r["email"]
+        name = r["full_name"]
+        pkg = r["package"]
+
+        cust_key = None
+        if email:
+            cust_key = email.lower()
+        elif name:
+            cust_key = name.lower()
+
+        if cust_key and cust_key not in customer_map:
+            new_customers.append(Customer(full_name=name or None, email=email or None))
+            customer_map[cust_key] = None  # placeholder
+
+        if pkg and pkg.lower() not in package_map:
+            new_packages.append(Package(name=pkg, price=0))
+            package_map[pkg.lower()] = None
+
+    # -----------------------------------------
+    # 5. BULK CREATE CUSTOMERS + PACKAGES
+    # -----------------------------------------
+    created_customers = Customer.objects.bulk_create(new_customers)
+    created_packages = Package.objects.bulk_create(new_packages)
+
+    for c in created_customers:
+        if c.email:
+            customer_map[c.email.lower()] = c
+        if c.full_name:
+            customer_map[c.full_name.lower()] = c
+
+    for p in created_packages:
+        package_map[p.name.lower()] = p
+
+    # -----------------------------------------
+    # 6. BULK CREATE BOOKINGS
+    # -----------------------------------------
+    booking_objs = []
+
+    for _, r in df.iterrows():
+
+        # customer lookup
+        key = r["email"].lower() if r["email"] else (
+            r["full_name"].lower() if r["full_name"] else None
         )
+        customer = customer_map.get(key)
 
+        # package lookup
+        pkg = package_map.get(r["package"].lower()) if r["package"] else None
 
-            # ------------------------------
-            # SESSION DATE
-            # ------------------------------
+        # date parsing
+        session_date = None
+        raw_dt = r.get("session_date")
 
-            raw_dt = r.get("session_date")
+        if raw_dt and str(raw_dt).lower() not in ["nan", "none", ""]:
+            try:
+                dt = datetime.fromisoformat(str(raw_dt))
+                if is_naive(dt):
+                    dt = make_aware(dt)
+                session_date = dt
+            except:
+                pass
 
-            if raw_dt and str(raw_dt).lower() not in ["nan", "none", ""]:
-                try:
-                    dt = datetime.fromisoformat(str(raw_dt))
-                    if is_naive(dt):
-                        dt = make_aware(dt)
-                    session_date = dt
-                except:
-                    session_date = None
-
-            booking = Booking.objects.create(
+        booking_objs.append(
+            Booking(
                 customer=customer,
-                package=package,
+                package=pkg,
                 session_date=session_date,
                 total_price=r.get("total"),
-                gcash_payment=r.get("gcash"),
-                cash_payment=r.get("cash"),
-                discounts=str(r.get("discounts")),
+                gcash_payment=clean_amount(r.get("gcash")),
+                cash_payment=clean_amount(r.get("cash")),
+                discounts=restore_percent(r.get("discounts")),
                 session_status="BOOKED",
             )
+        )
 
-            # ------------------------------
-            # ADDONS
-            # ------------------------------
+    created_bookings = Booking.objects.bulk_create(booking_objs)
 
-            addon_names, addon_prices = clean_breakdown(
-                r.get("breakdown_of_package"),
-                r.get("breakdown_pricing")
-            )
+    # -----------------------------------------
+    # 7. ADDONS — KEEP YOUR EXACT LOGIC
+    # -----------------------------------------
+    for booking, (_, r) in zip(created_bookings, df.iterrows()):
+        addon_names, addon_prices = clean_breakdown(
+            r.get("breakdown_of_package"),
+            r.get("breakdown_pricing"),
+        )
+        insert_booking_addons(
+            booking,
+            addon_names,
+            addon_prices,
+            booking.session_date,
+        )
 
-            insert_booking_addons(booking, addon_names, addon_prices, session_date)
-
-            merged += 1
-
-    return merged
+    return len(df)
