@@ -1,0 +1,126 @@
+* {
+    font-family: 'Segoe UI', -apple-system, Roboto, Helvetica, sans-serif;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+.heigen-gradient {
+    background: linear-gradient(180deg, rgba(81, 122, 135, 0.95) 0%, rgba(61, 92, 102, 0.95) 100%);
+    backdrop-filter: blur(10px);
+}
+
+.heigen-sidebar {
+    background: linear-gradient(180deg, #517A87 0%, #3D5C66 100%);
+}
+
+.btn-primary {
+    background-color: #3D5C66;
+    transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+    background-color: #2F4952;
+    transform: translateY(-1px);
+}
+
+.btn-primary:active {
+    background-color: #1F3138;
+}
+
+.link-button {
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.link-button:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+}
+
+input:focus, textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(81, 122, 135, 0.3);
+}
+
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: white;
+    padding: 16px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateX(400px);
+    transition: transform 0.3s ease;
+    z-index: 1000;
+    max-width: 300px;
+}
+
+.toast.show {
+    transform: translateX(0);
+}
+
+.toast-success { border-left: 4px solid #10b981; }
+.toast-error { border-left: 4px solid #ef4444; }
+.toast-info { border-left: 4px solid #3b82f6; }
+
+.screen {
+    display: none;
+}
+
+.screen.active {
+    display: block;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.sidebar-active {
+    background: #2F4952;
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.content-header {
+    background: #F5F1E8;
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.25);
+}
+
+.table-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 3px 3px 1px #D0D0D0;
+}
+
+.package-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 3px 3px 1px rgba(13, 10, 44, 0.06);
+    transition: transform 0.2s ease;
+}
+
+.package-card:hover {
+    transform: translateY(-2px);
+}

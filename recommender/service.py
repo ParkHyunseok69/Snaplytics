@@ -1,7 +1,7 @@
 # recommender/service.py (patched to use multi-addon loader)
 from pyspark.sql import Row
 from .loader import load_model, recommend_for_user, load_popularity_tables
-from pyspark import get_spark
+from pyspark.sql import SparkSession
 from .popularity_builder import build_monthly_popularity as build_popularity_tables
 from backend.models import BookingAddon
 from collections import defaultdict, Counter
@@ -46,6 +46,8 @@ def get_addon_counts():
         _addon_counts_cache = addon_counts
     return _addon_counts_cache
 
+def get_spark():
+    return SparkSession.builder.getOrCreate()
 
 def recommend_packages(customer_id, k=3):
     # Spark & model are initialized lazily inside the function (safe in Django)
