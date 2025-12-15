@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard | Heigen Admin</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Global styles -->
+  <link rel="stylesheet" href="../styles/main.css">
+  <link rel="stylesheet" href="../styles/logout-modal.css">
+</head>
+
+<body class="bg-[#8FA9B3] font-[Montserrat]">
+
+  <div class="flex min-h-screen">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar"></div>
+
+    <!-- MAIN CONTENT -->
+    <div class="flex-1 overflow-auto">
+
+      <!-- HEADER -->
+      <div id="header"></div>
+
+      <!-- DASHBOARD CONTENT -->
+      <div class="p-12">
+
+        <h2 class="text-white text-base font-bold mb-6">
+          PACKAGE RECOMMENDATION
+        </h2>
+
+        <div class="grid grid-cols-2 gap-6">
+
+          <div class="package-card p-6 h-64">
+            <h3 class="text-[#00445C] text-base font-bold mb-4">
+              PACKAGE 1
+            </h3>
+            <div class="bg-[#F5E6B3] h-40 rounded-lg"></div>
+          </div>
+
+          <div class="package-card p-6 h-64">
+            <h3 class="text-[#00445C] text-base font-bold mb-4">
+              PACKAGE 2
+            </h3>
+            <div class="bg-[#F5E6B3] h-40 rounded-lg"></div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../scripts/heigen-api.js"></script>
+  <script src="../scripts/heigen-app.js"></script>
+  <script src="../scripts/logout-modal.js"></script>
+
+  <!-- Load partials -->
+  <script>
+    fetch('../partials/sidebar.html')
+      .then(res => res.text())
+      .then(html => document.getElementById('sidebar').innerHTML = html);
+
+    fetch('../partials/header.html')
+      .then(res => res.text())
+      .then(html => document.getElementById('header').innerHTML = html);
+  </script>
+
+</body>
+</html>
