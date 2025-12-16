@@ -11,7 +11,6 @@ def merge_addons_with_bookings_safe(bookings_df, addons_df, user_col='customer_i
     - bookings_df: DataFrame with booking_id and user_col (customer_id or user_id)
     - addons_df: DataFrame with booking_id and addon_id
     """
-    import pandas as pd
 
     if 'booking_id' not in bookings_df.columns:
         raise ValueError("bookings_df must contain 'booking_id'")

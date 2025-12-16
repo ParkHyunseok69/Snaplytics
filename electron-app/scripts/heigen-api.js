@@ -54,6 +54,58 @@ const MOCK_CUSTOMERS = [
     { id: 8, name: 'Miguel Ramos', email: 'miguel@email.com', contact: '0924-890-1234', consent: false, bookings: 1 }
 ];
 
+// ===============================
+// MOCK CUSTOMERS + BOOKINGS
+// ===============================
+const CUSTOMERS = [
+    {
+        id: 1,
+        name: 'Sarah Johnson',
+        email: 'sarah.j@email.com',
+        contact: '09123456789',
+        consent: 'Approved'
+    },
+    {
+        id: 2,
+        name: 'John Carter',
+        email: 'john.c@email.com',
+        contact: '09987654321',
+        consent: 'Pending'
+    }
+];
+
+const CUSTOMER_BOOKINGS = {
+    1: [
+        {
+            id: '#B001',
+            date: 'Nov 15, 2024',
+            package: 'Regular Self-Portrait',
+            status: 'Completed'
+        },
+        {
+            id: '#B002',
+            date: 'Dec 02, 2024',
+            package: 'Deluxe Package',
+            status: 'Scheduled'
+        }
+    ],
+    2: []
+};
+
+function getCustomers() {
+    return CUSTOMERS;
+}
+
+function getCustomerBookings(customerId) {
+    return CUSTOMER_BOOKINGS[customerId] || [];
+}
+
+window.API = {
+    ...window.API,
+    getCustomers,
+    getCustomerBookings
+};
+
 const MOCK_PACKAGES = [
     { 
         id: 1, 

@@ -5,7 +5,7 @@
 // Global State Management
 const AppState = {
     currentUser: null,
-    currentScreen: 'login',
+    currentScreen: null,
     customers: [],
     packages: [],
     addons: [],
@@ -13,78 +13,11 @@ const AppState = {
 };
 
 // ==============================================
-// NAVIGATION & ROUTING
+// NAVIGATION (MULTI-PAGE)
 // ==============================================
 
-function navigateTo(screen) {
-    // Hide all screens
-    document.querySelectorAll('.screen').forEach(el => {
-        el.classList.remove('active');
-    });
-
-    // Show target screen
-    const targetScreen = document.getElementById(`${screen}-screen`);
-    if (targetScreen) {
-        targetScreen.classList.add('active');
-        AppState.currentScreen = screen;
-
-        // Update sidebar active state
-        updateSidebarActiveState(screen);
-
-        // Load screen-specific data
-        loadScreenData(screen);
-    }
-}
-
-function updateSidebarActiveState(screen) {
-    document.querySelectorAll('[id^="nav-"]').forEach(el => {
-        el.classList.remove('sidebar-active');
-    });
-
-    const activeNav = document.getElementById(`nav-${screen}`);
-    if (activeNav) {
-        activeNav.classList.add('sidebar-active');
-    }
-}
-
-
-function loadScreenData(screen) {
-    switch(screen) {
-        case 'dashboard':
-            loadDashboardData();
-            break;
-        case 'customers':
-            cloneSidebar('customers');
-            loadCustomersData();
-            break;
-        case 'packages':
-            cloneSidebar('packages');
-            loadPackagesData();
-            break;
-    }
-}
-
-// Clone sidebar for screens that need it
-function cloneSidebar(screen) {
-    const targetContainer = document.getElementById(`sidebar-${screen}`);
-    if (!targetContainer) return;
-
-    const dashboardScreen = document.getElementById('dashboard-screen');
-    const sidebar = dashboardScreen.querySelector('.heigen-sidebar');
-    
-    if (sidebar && targetContainer.children.length === 0) {
-        const clone = sidebar.cloneNode(true);
-        targetContainer.appendChild(clone);
-        
-        // Re-attach event listeners
-        clone.querySelectorAll('a[onclick]').forEach(link => {
-            const onclick = link.getAttribute('onclick');
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                eval(onclick);
-            });
-        });
-    }
+function navigateTo(page) {
+    window.location.href = page;
 }
 
 // ==============================================
@@ -94,13 +27,15 @@ function cloneSidebar(screen) {
 function showToast(message, type = 'info') {
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toast-message');
-    
+
+    if (!toast || !toastMessage) return;
+
     toast.classList.remove('toast-success', 'toast-error', 'toast-info');
     toast.classList.add(`toast-${type}`);
-    
+
     toastMessage.textContent = message;
     toast.classList.add('show');
-    
+
     setTimeout(() => {
         toast.classList.remove('show');
     }, 3000);
@@ -112,131 +47,94 @@ function showToast(message, type = 'info') {
 
 function showSuccessModal(title, subtitle) {
     const modal = document.getElementById('success-modal');
+    if (!modal) return;
+
     document.getElementById('modal-title').textContent = title;
     document.getElementById('modal-subtitle').textContent = subtitle;
     modal.classList.add('active');
 }
 
 function closeModal() {
-    document.getElementById('success-modal').classList.remove('active');
-    navigateTo('login');
+    const modal = document.getElementById('success-modal');
+    if (!modal) return;
+
+    modal.classList.remove('active');
+    navigateTo('../index.html');
 }
 
 // ==============================================
-// FORM HANDLERS
+// FORM HANDLERS (LOGIN / SIGNUP)
 // ==============================================
 
-// Login Form
-document.getElementById('login-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
+document.addEventListener('submit', async (e) => {
 
-    // Validate
-    if (!email || !password) {
-        showToast('Please fill in all fields', 'error');
-        return;
-    }
+    // ------------------------------
+    // LOGIN FORM
+    // ------------------------------
+    if (e.target.id === 'login-form') {
+        e.preventDefault();
 
-    showToast('Signing in...', 'info');
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
 
-    try {
-        // TODO: API CALL
-        const result = await API.login(email, password);
-
-        if (!result.success) {
-            throw new Error(result.error || 'Login failed');
+        if (!email || !password) {
+            showToast('Please fill in all fields', 'error');
+            return;
         }
 
-        AppState.currentUser = result.user;
+        try {
+            // TODO: API CALL
+            // POST /auth/login
+            const result = await API.login(email, password);
 
-        showToast('Login successful!', 'success');
-        
-        setTimeout(() => {
-            navigateTo('dashboard');
-        }, 1000);
-    } catch (error) {
-        showToast(error.message || 'Login failed', 'error');
-    }
-});
+            if (!result.success) throw new Error(result.error);
 
-// Signup Form
-document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const name = document.getElementById('signup-name').value;
-    const email = document.getElementById('signup-email').value;
-    const password = document.getElementById('signup-password').value;
-    const confirm = document.getElementById('signup-confirm').value;
+            AppState.currentUser = result.user;
+            showToast('Login successful!', 'success');
 
-    // Validate
-    if (!name || !email || !password || !confirm) {
-        showToast('Please fill in all fields', 'error');
-        return;
+            navigateTo('./pages/dashboard.html');
+
+        } catch (error) {
+            showToast(error.message || 'Login failed', 'error');
+        }
     }
 
-    if (password !== confirm) {
-        showToast('Passwords do not match', 'error');
-        return;
-    }
+    // ------------------------------
+    // SIGNUP FORM
+    // ------------------------------
+    if (e.target.id === 'signup-form') {
+        e.preventDefault();
 
-    if (password.length < 6) {
-        showToast('Password must be at least 6 characters', 'error');
-        return;
-    }
+        const name = document.getElementById('signup-name').value;
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+        const confirm = document.getElementById('signup-confirm').value;
 
-    try {
-        // TODO: API CALL
-        const result = await API.signup(name, email, password);
-
-        if (!result.success) {
-            throw new Error(result.error || 'Signup failed');
+        if (!name || !email || !password || !confirm) {
+            showToast('Please fill in all fields', 'error');
+            return;
         }
 
-        
-        showSuccessModal('Account created successfully!', 'Go back to sign in page');
-    } catch (error) {
-        showToast(error.message || 'Signup failed', 'error');
-    }
-});
-
-// Reset Password Form
-document.getElementById('reset-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const email = document.getElementById('reset-email').value;
-    const newPassword = document.getElementById('reset-new-password').value;
-    const confirmPassword = document.getElementById('reset-confirm-password').value;
-
-    // Validate
-    if (!email || !newPassword || !confirmPassword) {
-        showToast('Please fill in all fields', 'error');
-        return;
-    }
-
-    if (newPassword !== confirmPassword) {
-        showToast('Passwords do not match', 'error');
-        return;
-    }
-
-    if (newPassword.length < 6) {
-        showToast('Password must be at least 6 characters', 'error');
-        return;
-    }
-
-    try {
-        // TODO: API CALL
-        const result = await API.resetPassword(email, newPassword);
-
-        if (!result.success) {
-            throw new Error(result.error || 'Reset failed');
+        if (password !== confirm) {
+            showToast('Passwords do not match', 'error');
+            return;
         }
 
-        
-        showSuccessModal('Password changed successfully!', 'Go back to sign in page');
-    } catch (error) {
-        showToast(error.message || 'Password reset failed', 'error');
+        try {
+            // TODO: API CALL
+            // POST /auth/signup
+            const result = await API.signup(name, email, password);
+
+            if (!result.success) throw new Error(result.error);
+
+            showSuccessModal(
+                'Account created successfully!',
+                'Go back to sign in page'
+            );
+
+        } catch (error) {
+            showToast(error.message || 'Signup failed', 'error');
+        }
     }
 });
 
@@ -246,11 +144,10 @@ document.getElementById('reset-form')?.addEventListener('submit', async (e) => {
 
 async function loadDashboardData() {
     try {
-        // TODO: API CALL - Load dashboard statistics
+        // TODO: API CALL
+        // GET /dashboard/stats
         const stats = await API.getDashboardStats();
-        
-        // Update dashboard UI with stats
-        console.log('Dashboard stats loaded:', stats);
+        console.log('Dashboard stats:', stats);
     } catch (error) {
         console.error('Failed to load dashboard data:', error);
     }
@@ -272,6 +169,18 @@ async function loadCustomersData() {
         showToast('Failed to load customers', 'error');
     }
 }
+
+function viewCustomerDetails(customerId) {
+  // OPTIONAL: store selected customer
+  AppState.selectedCustomer = customerId;
+
+  // Switch views
+  document.getElementById("customers-list")?.classList.add("hidden");
+  document.getElementById("customer-details")?.classList.remove("hidden");
+
+  console.log("Viewing customer:", customerId);
+}
+
 
 function renderCustomersTable(customers) {
     const tbody = document.getElementById('customers-tbody');
@@ -298,21 +207,68 @@ function renderCustomersTable(customers) {
     `).join('');
 }
 
-async function viewCustomerDetails(customerId) {
-    try {
-        // TODO: API CALL - Load customer details
-        const customer = await API.getCustomerDetails(customerId);
-        
-        AppState.selectedCustomer = customer;
-        
-        // TODO: Navigate to customer details view
-        // This would need a separate screen implementation
-        showToast(`Viewing details for ${customer.name}`, 'info');
-    } catch (error) {
-        console.error('Failed to load customer details:', error);
-        showToast('Failed to load customer details', 'error');
-    }
+/*************************************************
+ * VIEW SWITCHING
+ *************************************************/
+function openCustomerDetails() {
+  document.getElementById("customers-list").classList.add("hidden");
+  document.getElementById("customer-details").classList.remove("hidden");
 }
+
+function backToCustomers() {
+  document.getElementById("customer-details").classList.add("hidden");
+  document.getElementById("customers-list").classList.remove("hidden");
+}
+
+/*************************************************
+ * MODAL HELPERS
+ *************************************************/
+function openModal(id) {
+  document.getElementById(id).classList.remove("hidden");
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.add("hidden");
+}
+
+
+/*************************************************
+ * BOOKING FLOW (BOOKING MODALS ONLY)
+ *************************************************/
+const bookingState = {
+  customer: {},
+  package: {},
+  addons: [],
+  discount: 0
+};
+
+function openBooking() {
+  openBookingModal("modal-bc");
+}
+
+function openPackageModal() {
+  closeBookingModal("modal-bc");
+  openBookingModal("modal-bp");
+}
+
+function openSummaryModal() {
+  closeBookingModal("modal-bp");
+  openBookingModal("modal-bs");
+}
+
+function confirmBooking() {
+  console.log("Booking data:", bookingState);
+  closeBookingModal("modal-bs");
+  alert("Booking confirmed!");
+}
+
+/*************************************************
+ * HISTORY TOGGLE
+ *************************************************/
+function toggleHistory() {
+  document.getElementById("customerHistory").classList.toggle("hidden");
+}
+
 
 // ==============================================
 // PACKAGES DATA
@@ -429,41 +385,195 @@ function renderAddons(addons) {
 
     container.innerHTML = addonsHTML + createNewCard;
 }
-
-async function editPackage(packageId) {
-    try {
-        // TODO: API CALL - Load package details for editing
-        const pkg = await API.getPackageDetails(packageId);
-        
-        // TODO: Show edit modal/form
-        showToast(`Editing package: ${pkg.name}`, 'info');
-    } catch (error) {
-        console.error('Failed to load package details:', error);
-        showToast('Failed to load package', 'error');
+// -------------------------------
+// SHARED UI / MODAL LOGIC
+// -------------------------------
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
     }
 }
 
+function closeModal() {
+    const modals = document.querySelectorAll('.modal-backdrop');
+    modals.forEach(modal => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    });
+}
+
+// Close on backdrop click
+window.addEventListener('click', function (e) {
+    if (e.target.classList.contains('modal-backdrop')) {
+        closeModal();
+    }
+});
+
+// Close on ESC
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        closeModal();
+    }
+});
+
+document.addEventListener('submit', function (e) {
+    if (e.target.matches('#createPackageModal form')) {
+        e.preventDefault();
+        handleCreatePackage(e.target);
+    }
+
+    if (e.target.matches('#editPackageModal form')) {
+        e.preventDefault();
+        handleEditPackage(e.target);
+    }
+});
+
+document.addEventListener('submit', function (e) {
+
+    if (e.target.matches('#createAddonModal form')) {
+        e.preventDefault();
+        handleCreateAddon(e.target);
+    }
+
+    if (e.target.matches('#editAddonModal form')) {
+        e.preventDefault();
+        handleEditAddon(e.target);
+    }
+});
+
+
+
+// -------------------------------
+// CREATE / EDIT PACKAGES
+// -------------------------------
+
 async function createNewPackage() {
-    // TODO: Show create package modal/form
+    openModal('createPackageModal');
     showToast('Create new package functionality', 'info');
 }
 
+async function editPackage(packageId) {
+    try {
+        const pkg = await API.getPackage(packageId);
+        if (!pkg) throw new Error('Package not found');
+
+        // Fill basic fields
+        document.getElementById('edit-package-name').value = pkg.name;
+        document.getElementById('edit-package-price').value = pkg.price;
+
+        // Inclusions container
+        const container = document.getElementById('edit-package-inclusions');
+        container.innerHTML = '';
+
+        // Populate inclusions (SCROLLBAR + TRASH ICON)
+        pkg.inclusions.forEach(text => {
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2';
+
+            row.innerHTML = `
+                <input type="text"
+                       value="${text}"
+                       class="flex-1 px-3 py-2 text-xs rounded-lg border border-gray-300
+                              focus:outline-none focus:ring-2 focus:ring-teal-600">
+                <button type="button"
+                        onclick="this.closest('.flex').remove()"
+                        class="text-gray-400 hover:text-red-500">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                              d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9z"
+                              clip-rule="evenodd"/>
+                    </svg>
+                </button>
+            `;
+
+            container.appendChild(row);
+        });
+
+        // Open modal LAST
+        openModal('editPackageModal');
+
+    } catch (error) {
+        console.error(error);
+        alert('Failed to load package');
+    }
+}
+
+function handleCreatePackage(form) {
+    const data = new FormData(form);
+    console.log('Create package:', Object.fromEntries(data));
+
+    HeigenStudio.showNotification(
+        'Package Created',
+        'New package has been added successfully',
+        'success'
+    );
+
+    closeModal();
+}
+
+function handleEditPackage(form) {
+    const data = new FormData(form);
+    console.log('Edit package:', Object.fromEntries(data));
+
+    HeigenStudio.showNotification(
+        'Package Updated',
+        'Package details updated successfully',
+        'success'
+    );
+
+    closeModal();
+}
+
+// -------------------------------
+// CREATE / EDIT ADDONS
+// -------------------------------
+
+async function createNewAddon() {
+     openModal('createAddonModal');
+    showToast('Create new addon functionality', 'info');
+}
 async function editAddon(addonId) {
     try {
-        // TODO: API CALL - Load addon details for editing
-        const addon = await API.getAddonDetails(addonId);
-        
-        // TODO: Show edit modal/form
-        showToast(`Editing addon: ${addon.name}`, 'info');
+        const { addons } = await API.getAddons();
+        const addon = addons.find(a => a.id === addonId);
+
+        if (!addon) throw new Error('Addon not found');
+
+        document.getElementById('edit-addon-name').value = addon.name;
+        document.getElementById('edit-addon-price').value = addon.price;
+        document.getElementById('edit-addon-description').value = addon.description || '';
+
+        openModal('editAddonModal');
+
     } catch (error) {
-        console.error('Failed to load addon details:', error);
+        console.error(error);
         showToast('Failed to load addon', 'error');
     }
 }
 
-async function createNewAddon() {
-    // TODO: Show create addon modal/form
-    showToast('Create new addon functionality', 'info');
+
+
+function handleCreateAddon(form) {
+    const data = Object.fromEntries(new FormData(form));
+    console.log('Create addon:', data);
+
+    showToast('Addon created successfully', 'success');
+    closeModal();
+}
+
+function handleEditAddon(form) {
+    const data = Object.fromEntries(new FormData(form));
+    console.log('Edit addon:', data);
+
+    showToast('Addon updated successfully', 'success');
+    closeModal();
+}
+
+function handleDeleteAddon() {
+    showToast('Addon deleted', 'success');
+    closeModal();
 }
 
 // ==============================================
@@ -471,69 +581,34 @@ async function createNewAddon() {
 // ==============================================
 
 function logout() {
-    if (confirm('Are you sure you want to logout?')) {
-        AppState.currentUser = null;
-        AppState.customers = [];
-        AppState.packages = [];
-        AppState.addons = [];
-        
-        showToast('Logged out successfully', 'success');
-        
-        setTimeout(() => {
-            navigateTo('login');
-        }, 500);
-    }
+    if (!confirm('Are you sure you want to logout?')) return;
+
+    // TODO: API CALL (optional)
+    // POST /auth/logout
+
+    AppState.currentUser = null;
+    AppState.customers = [];
+    AppState.packages = [];
+    AppState.addons = [];
+
+    navigateTo('../index.html');
 }
 
 // ==============================================
-// INITIALIZATION
+// PAGE INITIALIZATION (AUTO LOAD DATA)
 // ==============================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Heigen Admin System initialized');
-    
-    // Check if user is already logged in (from localStorage/sessionStorage)
-    const savedUser = localStorage.getItem('heigen_user');
-    if (savedUser) {
-        try {
-            AppState.currentUser = JSON.parse(savedUser);
-            navigateTo('dashboard');
-        } catch (error) {
-            console.error('Failed to restore user session:', error);
-        }
+
+    if (document.getElementById('dashboard-screen')) {
+        loadDashboardData();
+    }
+
+    if (document.getElementById('customers-screen')) {
+        loadCustomersData();
+    }
+
+    if (document.getElementById('packages-screen')) {
+        loadPackagesData();
     }
 });
-
-// ==============================================
-// UTILITY FUNCTIONS
-// ==============================================
-
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-    });
-}
-
-function formatCurrency(amount) {
-    return `₱${amount.toFixed(2)}`;
-}
-
-function validateEmail(email) {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-}
-
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
