@@ -1,9 +1,3 @@
-from django.contrib import admin
-from .models import Customer, Package, Addon, Booking, BookingAddon, Renewal
-
-admin.site.register(Customer)
-admin.site.register(Package)
-admin.site.register(Addon)
-admin.site.register(Booking)
-admin.site.register(BookingAddon)
-admin.site.register(Renewal)
+version https://git-lfs.github.com/spec/v1
+oid sha256:c546e69a7fbe05fa0bcfdc53a6a822a8c956473090d0cc8feb79f02f3ddc3b6e
+size 289

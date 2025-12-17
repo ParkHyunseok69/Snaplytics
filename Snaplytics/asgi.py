@@ -1,16 +1,3 @@
-"""
-ASGI config for Snaplytics project.
-
-It exposes the ASGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
-"""
-
-import os
-
-from django.core.asgi import get_asgi_application
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Snaplytics.settings')
-
-application = get_asgi_application()
+version https://git-lfs.github.com/spec/v1
+oid sha256:a3f7ac7620eaec7d8c9b99bbdf2d7f92eaffc112ac7e395ae526ca701f0fbec9
+size 397

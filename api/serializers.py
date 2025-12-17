@@ -1,12 +1,3 @@
-from rest_framework import serializers
-from backend.models import Customer, Package
-
-class CustomerSerializer(serializers.ModelSerializer):
- class Meta:
-    model = Customer
-    fields = ['customer_id', 'full_name', 'email', 'contact_number', 'package']
-class PackageSerializer(serializers.ModelSerializer):
- class Meta:
-    model = Package
-    fields = ['id', 'name', 'category', 'price', 'promo_price', 
-              'promo_price_condition', 'inclusions', 'included_portraits', 'freebies']
+version https://git-lfs.github.com/spec/v1
+oid sha256:385de458f84c06b509b8db5e0c119b51f4a9ba795f5b5c8cf5bb5853880f685e
+size 1163

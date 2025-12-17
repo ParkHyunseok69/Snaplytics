@@ -1,12 +1,3 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import CustomerViewSet, PackageViewSet
-from .views import customer_recommendations
-
-router = DefaultRouter()
-router.register(r'customers', CustomerViewSet, basename='customer')
-router.register(r'packages', PackageViewSet, basename='package')
-urlpatterns = [
- path('', include(router.urls)),
- path("recommendations/<int:customer_id>/", customer_recommendations),
-]
+version https://git-lfs.github.com/spec/v1
+oid sha256:04587d21a4c4824df4ff78f57272eddcd876a7e469aa3c83dc82a68c0406693e
+size 616

@@ -1,1 +1,3 @@
-matchMedia() polyfill - Test a CSS media type/query in JS. Authors & copyright (c) 2012: Scott Jehl, Paul Irish, Nicholas Zakas. Dual MIT/BSD license
+version https://git-lfs.github.com/spec/v1
+oid sha256:e8499035cf16f12f6feea4ba13b3952ca1c70f11971e730f15959b9c7b03fc46
+size 149

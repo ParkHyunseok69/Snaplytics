@@ -1,8 +1,3 @@
-{
-    "builder.serverUrl": "",
-    "builder.command": "npm run dev",
-    "builder.runDevServer": true,
-    "builder.autoDetectDevServer": true,
-    "builder.launchType": "browser",
-    "liveServer.settings.port": 5501
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:cd746d7d94f5d4831fecb0a1c0f653bf30bd9d0e10f3e6beb50ac6c0038bd9ea
+size 219

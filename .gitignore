@@ -1,7 +1,3 @@
-node_modules/
-dist/
-build/
-venv/
-__pycache__/
-*.csv
-*.xlsx
+version https://git-lfs.github.com/spec/v1
+oid sha256:12703ed93003895065e595045bcf05b54a92ed0c566537c59f789433dca89991
+size 46

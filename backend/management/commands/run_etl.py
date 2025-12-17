@@ -1,13 +1,3 @@
-from django.core.management.base import BaseCommand
-from etl.scripts.run_etl import run_etl
-
-class Command(BaseCommand):
-    help = "Run the ETL pipeline"
-
-    def add_arguments(self, parser):
-        parser.add_argument("--merge", action="store_true")
-
-    def handle(self, *args, **options):
-        merge = options["merge"]
-        run_etl(merge=merge)
-        self.stdout.write(self.style.SUCCESS("ETL completed"))
+version https://git-lfs.github.com/spec/v1
+oid sha256:563c0d1348bddb273b720903ae28fae5535bd6ada1d4f09ecb247c25f541da7c
+size 419
