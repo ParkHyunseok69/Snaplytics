@@ -1,3 +1,4 @@
+*.dll filter=lfs diff=lfs merge=lfs -text
 *.env filter=lfs diff=lfs merge=lfs -text
 *.md filter=lfs diff=lfs merge=lfs -text
 *.yml filter=lfs diff=lfs merge=lfs -text
@@ -175,7 +176,6 @@
 /env/Lib/site-packages/llvmlite-0.46.0.dist-info/METADATA filter=lfs diff=lfs merge=lfs -text
 /env/Lib/site-packages/llvmlite-0.46.0.dist-info/RECORD filter=lfs diff=lfs merge=lfs -text
 /env/Lib/site-packages/llvmlite-0.46.0.dist-info/WHEEL filter=lfs diff=lfs merge=lfs -text
-*.dll filter=lfs diff=lfs merge=lfs -text
 /env/Lib/site-packages/matplotlib-3.10.8.dist-info/INSTALLER filter=lfs diff=lfs merge=lfs -text
 /env/Lib/site-packages/matplotlib-3.10.8.dist-info/LICENSE filter=lfs diff=lfs merge=lfs -text
 /env/Lib/site-packages/matplotlib-3.10.8.dist-info/METADATA filter=lfs diff=lfs merge=lfs -text
